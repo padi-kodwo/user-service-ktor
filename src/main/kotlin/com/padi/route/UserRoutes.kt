@@ -16,25 +16,28 @@ fun Route.userRouting(){
     route("/users"){
 
         get {
-
             if (userStorage.isEmpty())
-                call.respond(HttpStatusCode.OK,
-                    message = wrapFailureInApiResponse<User>(-1, "No user found"))
+                call.respond(
+                    HttpStatusCode.OK,
+                    message = wrapFailureInApiResponse<User>(-1, "No users found")
+                )
 
-
-            val apiResponse = wrapSuccessInApiResponse(userStorage)
-            call.respond(HttpStatusCode.OK, message = apiResponse)
+            call.respond(
+                HttpStatusCode.OK,
+                message = wrapSuccessInApiResponse(userStorage)
+            )
         }
 
         get("/{id}"){
-            val id = call.parameters["id"] ?:return@get call.respondText(
-                "Missing id",
-                status = HttpStatusCode.BadRequest
+            val id = call.parameters["id"] ?:
+            return@get call.respond(
+                status = HttpStatusCode.BadRequest,
+                message = wrapFailureInApiResponse<User>(HttpStatusCode.BadRequest.value, "Missing Path variable (id)")
             )
 
-            val user = userStorage.find { it.id == id } ?: return@get call.respondText(
-                "No user found",
-                status = HttpStatusCode.NotFound
+            val user = userStorage.find { it.id == id } ?: return@get call.respond(
+                status = HttpStatusCode.NotFound,
+                message = wrapFailureInApiResponse<User>(HttpStatusCode.NotFound.value, "user not found")
             )
 
             call.respond(user)
@@ -51,9 +54,12 @@ fun Route.userRouting(){
         put {
             val customer = call.receive<User>()
 
-            val tempCustomer = userStorage.find { it.id == customer.id } ?: return@put call.respondText(
-                "No user found",
-                status = HttpStatusCode.BadRequest)
+            val tempCustomer = userStorage.find { it.id == customer.id } ?:
+            return@put call.respond(
+                status = HttpStatusCode.NotFound,
+                message = wrapFailureInApiResponse<User>(HttpStatusCode.NotFound.value, "user not found by: " +
+                        customer.id)
+            )
 
             val updatedCustomer = tempCustomer
             updatedCustomer.firstName = customer.firstName
@@ -61,11 +67,24 @@ fun Route.userRouting(){
             updatedCustomer.email = customer.email
 
             Collections.replaceAll(userStorage, tempCustomer, updatedCustomer )
-            call.respond(HttpStatusCode.OK, message = updatedCustomer)
+            call.respond(status = HttpStatusCode.OK, message = updatedCustomer)
         }
 
-        delete("/id"){
-            //
+        delete("/{id}"){
+            val id = call.parameters["id"] ?:
+            return@delete call.respond(HttpStatusCode.BadRequest)
+
+            if (userStorage.removeIf { it.id == id }){
+                call.respond(
+                    status = HttpStatusCode.OK,
+                    message = wrapSuccessInApiResponse("user with $id deleted")
+                )
+            }else{
+                call.respond(
+                    status = HttpStatusCode.OK,
+                    message = wrapSuccessInApiResponse("user with $id deleted")
+                )
+            }
         }
     }
 }
